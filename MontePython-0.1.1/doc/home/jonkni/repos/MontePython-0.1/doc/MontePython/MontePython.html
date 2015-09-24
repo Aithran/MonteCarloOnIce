@@ -1,0 +1,1043 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+          "http://www.w3.org/TR/html40/loose.dtd">
+
+<html>
+         
+  <head>
+    <title>Class: MontePython</title>
+  </head>
+
+  <body bgcolor="#ffffff">
+
+        <p><i><a href="../../../../../../index.html">Table of Contents</a></i></p>
+        
+        <table border="0" cellpadding="5" cellspacing="0" width="100%">
+        <tr>
+            <th rowspan="2"
+                valign="top"
+                align="left"
+                width="10%"
+                bgcolor="#88bbee"><font color="#000000">Class: MontePython</font>
+            </th>
+            <th bgcolor="#88bbee"
+                width="90%"
+                align="right"><font color="#000000">./src/Python/MontePython.py</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        <p>Parallellized Diffusion Monte Carlo Simulation
+Example on usage:
+&gt;&gt;&gt; import pypar
+Pypar (version 1.9.1) initialised MPI OK with 1 processors
+&gt;&gt;&gt; import sys, math, Numeric, MLab, os, pickle
+&gt;&gt;&gt; from MontePython import MontePython
+&gt;&gt;&gt; d = MontePython(pypar)
+&gt;&gt;&gt; d.reset_params()
+&gt;&gt;&gt; d.silent = True # to avoid too much noise
+&gt;&gt;&gt; d.blocks = 5
+&gt;&gt;&gt; d.tau_list = [[0.001,100,d.blocks],]
+&gt;&gt;&gt; blocks = d.blocks
+&gt;&gt;&gt; loc_tmp_nrg = Numeric.empty(3,'f')
+&gt;&gt;&gt; tmp_nrg = Numeric.empty(3*d.numproc,'f')
+&gt;&gt;&gt; tmp_nrg.shape = (d.numproc,3)
+&gt;&gt;&gt; def timestep(i_step):
+...     M = d.no_of_walkers;
+...     d.monte_carlo_steps()
+...     d.update = False
+...     #bring out your dead
+...     for i in xrange(len(d.w_block)-1,-1,-1):
+...         if d.w_block.isDead(i):
+...             del(d.w_block[i])  #removing walker
+...         else:
+...             while d.w_block.tooAlive(i):
+...                 d.w_block += d.w_block[i]
+...                 d.w_block.calmWalker(len(d.w_block)-1)
+...                 d.w_block.madeWalker(i)
+...     d.load_balancing()
+...     nrg = 0.; pot_nrg = 0.; vort_nrg = 0
+...     loc_nrg = 0.; loc_pot_nrg = 0.; loc_vort_nrg = 0
+...     d.time_step_counter += 1
+...     loc_nrg     = d.w_block.warray.getLocalEnergies(*d.num_args)
+...     loc_pot_nrg = d.w_block.warray.getOtherEnergies(d.pot_e)
+...     if hasattr(d,'vort_e'):
+...         loc_vort_nrg = d.w_block.warray.getOtherEnergies(d.vort_e)
+...     loc_nrg      /= float(d.no_of_walkers*d.particles*d.scale)
+...     loc_pot_nrg  /= float(d.no_of_walkers*d.particles*d.scale)
+...     loc_vort_nrg /= float(d.no_of_walkers*d.particles*d.scale)
+...     loc_tmp_nrg[0] = loc_nrg
+...     loc_tmp_nrg[1] = loc_pot_nrg
+...     loc_tmp_nrg[2] = loc_vort_nrg
+...     d.pypar.gather(loc_tmp_nrg,
+...                    d.master_rank,
+...                    buffer=tmp_nrg)
+...     if d.master:
+...         nrg=float(Numeric.sum(tmp_nrg[:,0]))
+...         pot_nrg=float(Numeric.sum(tmp_nrg[:,1]))
+...         vort_nrg=float(Numeric.sum(tmp_nrg[:,2]))
+...         d.energy  += nrg
+...         d.energy2 += nrg*nrg
+...         if d.time_step_counter &gt; d.termalization:
+...             d.observables[i_step,0] = nrg
+...             d.observables[i_step,1] = pot_nrg
+...             d.observables[i_step,2] = vort_nrg
+...         if not hasattr(d,'silent'):
+...             print &quot;Step no.&quot;, i_step+1, &quot;	nrg&quot;, nrg, &quot;	pot_nrg&quot;,                   pot_nrg, &quot;	vort_nrg&quot;, vort_nrg, &quot;	no. of walkers&quot;,                   d.no_of_walkers
+...     # adjust trial energy (and no. of walkers)
+...     nrg = -.5*math.log(float(d.no_of_walkers)/float(M))/float(d.tau)
+...     d.e_trial += nrg
+...     d.num_args[-1] = d.update
+...
+&gt;&gt;&gt; d.uni_dist()
+&gt;&gt;&gt; for i in xrange(d.metropolis_termalization):
+...     d.metropolis_steps()
+...
+&gt;&gt;&gt; nrg = 0.
+&gt;&gt;&gt; nrg = d.w_block.warray.getLocalEnergies(*d.num_args)
+&gt;&gt;&gt; d.e_trial = d.all_reduce(nrg/d.no_of_walkers)
+&gt;&gt;&gt; if d.master:
+...     print d.e_trial/d.particles/d.scale
+...     print d.accept/float(d.trials)
+...
+2.51834776963
+0.526733333333
+&gt;&gt;&gt; first_tau=True
+&gt;&gt;&gt; while d.tau_list: #loop over taus
+...     tau = d.tau_list[0]
+...     d.tau   = tau[0]
+...     d.steps = tau[1]
+...     d.blocks = tau[2]
+...     if not os.access('observables_tau%g.dat'%d.tau,os.F_OK):
+...         if d.master:
+...             observables = Numeric.zeros((3,d.blocks),'float')
+...     elif d.master:
+...         f = open('observables_tau%g.dat'%d.tau,'r')
+...         observables = pickle.load(f)
+...         f.close()
+...     # resetting walkers if not first tau:
+...     if first_tau:
+...         first_tau=False
+...     else:
+...         d.uni_dist()
+...         for i in xrange(d.metropolis_termalization):
+...             d.metropolis_steps()
+...     while tau[2] &gt; 0: #loop over blocks
+...         d.reset()
+...         d.time_step_counter = 0
+...         for i in range(d.termalization):
+...             timestep(i)
+...         d.energy = 0; d.energy2 = 0
+...         for i in range(d.steps):
+...             d.tau_list[0][1] = d.steps-i
+...             timestep(i)
+...         if d.master:
+...             d.energy  /= float(d.steps)
+...             d.energy2 /= float(d.steps)
+...             d.energy2 -= d.energy*d.energy
+...             observables[0,d.blocks-tau[2]] = d.energy
+...             f = open('observables_tau%g.dat'%d.tau,'w')
+...             pickle.dump(observables,f)
+...             f.close()
+...             print <code>tau</code>,d.tau,'block',d.blocks-tau[2],                   <code>no. of walkers</code>,d.no_of_walkers
+...             print &quot;energy = %g +/- %g&quot;%(d.energy,                                         math.sqrt(d.energy2/                                                   float(d.steps)))
+...             print &quot;sigma = %g&quot;%d.energy2
+...         tau[2] -= 1
+...     if d.master:
+...         print <code>tau</code>,d.tau,'no. of walkers',d.no_of_walkers
+...         print &quot;energy = %g +/- %g&quot;%(MLab.mean(observables[0]),                                     math.sqrt(MLab.std(observables[0])/                                               float(len(observables[0]))))
+...         print &quot;sigma = %g&quot;%MLab.std(observables[0])
+...     del d.tau_list[0]
+...
+tau 0.001 block 0 no. of walkers 100
+energy = 2.50824 +/- 0.000804816
+sigma = 6.47729e-05
+tau 0.001 block 1 no. of walkers 100
+energy = 2.51304 +/- 0.000524061
+sigma = 2.7464e-05
+tau 0.001 block 2 no. of walkers 100
+energy = 2.53004 +/- 0.000766155
+sigma = 5.86993e-05
+tau 0.001 block 3 no. of walkers 100
+energy = 2.5335 +/- 0.00120665
+sigma = 0.0001456
+tau 0.001 block 4 no. of walkers 100
+energy = 2.52183 +/- 0.000481917
+sigma = 2.32244e-05
+tau 0.001 no. of walkers 100
+energy = 2.52133 +/- 0.0464206
+sigma = 0.0107744
+&gt;&gt;&gt; pypar.Finalize()
+&gt;&gt;&gt;</p>
+
+<table border="0" cellpadding="5" cellspacing="0" width="100%">
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="Methods">Methods</a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        
+
+            <table border="0" cellspacing="2" cellpadding="2" width="100%">
+              <tr>
+            <td align="LEFT" valign="TOP">
+<a href="#NumericFloat2IntList">NumericFloat2IntList</a><br>
+<a href="#__find_opt_w_p_node">__find_opt_w_p_node</a><br>
+<a href="#__init__">__init__</a><br>
+<a href="#__init_file">__init_file</a><br>
+<a href="#__init_mpi">__init_mpi</a><br>
+<a href="#__mk_chkpt_file">__mk_chkpt_file</a><br>
+<a href="#__set_move_params">__set_move_params</a><br>
+<a href="#__set_params">__set_params</a><br>
+<a href="#__set_w_block">__set_w_block</a><br>
+</td>
+<td align="LEFT" valign="TOP">
+<a href="#__set_w_p_node">__set_w_p_node</a><br>
+<a href="#__set_warray">__set_warray</a><br>
+<a href="#__set_work_data">__set_work_data</a><br>
+<a href="#__wave_type2funcs">__wave_type2funcs</a><br>
+<a href="#all_reduce">all_reduce</a><br>
+<a href="#checkpoint">checkpoint</a><br>
+<a href="#load_balancing">load_balancing</a><br>
+<a href="#load_walkers">load_walkers</a><br>
+<a href="#make_infile">make_infile</a><br>
+</td>
+<td align="LEFT" valign="TOP">
+<a href="#metropolis_steps">metropolis_steps</a><br>
+<a href="#monte_carlo_steps">monte_carlo_steps</a><br>
+<a href="#reset">reset</a><br>
+<a href="#reset_params">reset_params</a><br>
+<a href="#reset_work_data">reset_work_data</a><br>
+<a href="#save_walkers">save_walkers</a><br>
+<a href="#uni_dist">uni_dist</a><br>
+</td>
+</tr>
+            </table>
+            
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="NumericFloat2IntList"></a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">NumericFloat2IntList&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        <font color="#000088"><pre>
+NumericFloat2IntList ( self,  x )
+
+</pre></font>
+
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="__find_opt_w_p_node"></a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">__find_opt_w_p_node&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        <font color="#000088"><pre>
+__find_opt_w_p_node ( self )
+
+</pre></font>
+
+<p>Help function for load_balancing()
+        Finds and returns the optimal number of walkers
+        per node for a possibly non-uniform set of nodes</p>
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="__init__"></a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">__init__&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        <font color="#000088"><pre>
+__init__ (
+        self,
+        pypar,
+        file_str='',
+        )
+
+</pre></font>
+
+<p>Initialization of MontePython</p>
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="__init_file"></a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">__init_file&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        <font color="#000088"><pre>
+__init_file ( self,  file_str )
+
+</pre></font>
+
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="__init_mpi"></a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">__init_mpi&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        <font color="#000088"><pre>
+__init_mpi ( self )
+
+</pre></font>
+
+<p>mpi specific initialization</p>
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="__mk_chkpt_file"></a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">__mk_chkpt_file&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        <font color="#000088"><pre>
+__mk_chkpt_file (
+        self,
+        steps,
+        termalization,
+        )
+
+</pre></font>
+
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="__set_move_params"></a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">__set_move_params&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        <font color="#000088"><pre>
+__set_move_params ( self )
+
+</pre></font>
+
+<p>Function setting parameters for movement of walkers,
+        This is separated from set_params as tau is likely to
+        change during simulation</p>
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="__set_params"></a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">__set_params&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        <font color="#000088"><pre>
+__set_params ( self )
+
+</pre></font>
+
+<p>Function setting parameters for functors</p>
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="__set_w_block"></a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">__set_w_block&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        <font color="#000088"><pre>
+__set_w_block ( self,  buffer=None )
+
+</pre></font>
+
+<table border="0" cellpadding="5" cellspacing="0" width="100%">
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="Exceptions">Exceptions</a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        
+'wrong buffer!'<br>
+
+</td></tr>
+</table>
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="__set_w_p_node"></a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">__set_w_p_node&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        <font color="#000088"><pre>
+__set_w_p_node ( self )
+
+</pre></font>
+
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="__set_warray"></a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">__set_warray&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        <font color="#000088"><pre>
+__set_warray ( self )
+
+</pre></font>
+
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="__set_work_data"></a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">__set_work_data&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        <font color="#000088"><pre>
+__set_work_data ( self )
+
+</pre></font>
+
+<p>function setting work arrays etc.</p>
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="__wave_type2funcs"></a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">__wave_type2funcs&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        <font color="#000088"><pre>
+__wave_type2funcs ( self,  text )
+
+</pre></font>
+
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="all_reduce"></a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">all_reduce&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        <font color="#000088"><pre>
+all_reduce ( self,  x )
+
+</pre></font>
+
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="checkpoint"></a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">checkpoint&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        <font color="#000088"><pre>
+checkpoint (
+        self,
+        steps,
+        termalization,
+        )
+
+</pre></font>
+
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="load_balancing"></a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">load_balancing&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        <font color="#000088"><pre>
+load_balancing ( self )
+
+</pre></font>
+
+<p>Function balancing load between nodes</p>
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="load_walkers"></a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">load_walkers&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        <font color="#000088"><pre>
+load_walkers ( self )
+
+</pre></font>
+
+<table border="0" cellpadding="5" cellspacing="0" width="100%">
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="Exceptions">Exceptions</a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        
+'no outfile defined; no walkers loaded'<br>
+
+</td></tr>
+</table>
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="make_infile"></a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">make_infile&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        <font color="#000088"><pre>
+make_infile ( self )
+
+</pre></font>
+
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="metropolis_steps"></a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">metropolis_steps&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        <font color="#000088"><pre>
+metropolis_steps ( self )
+
+</pre></font>
+
+<p>Wrap around MCpp().MetropolisStep()</p>
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="monte_carlo_steps"></a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">monte_carlo_steps&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        <font color="#000088"><pre>
+monte_carlo_steps ( self )
+
+</pre></font>
+
+<p>Wrap around MCpp().MonteCarloStep()</p>
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="reset"></a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">reset&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        <font color="#000088"><pre>
+reset ( self )
+
+</pre></font>
+
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="reset_params"></a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">reset_params&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        <font color="#000088"><pre>
+reset_params ( self )
+
+</pre></font>
+
+<p>Function allowing users to change parameters sat in
+        the initialization file. Convenient if self has made a
+        default file. Note that it is safer to edit initialize.dat
+        and start over again.</p>
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="reset_work_data"></a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">reset_work_data&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        <font color="#000088"><pre>
+reset_work_data ( self )
+
+</pre></font>
+
+<p>Function allowing blocking without deleting everything.</p>
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="save_walkers"></a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">save_walkers&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        <font color="#000088"><pre>
+save_walkers ( self )
+
+</pre></font>
+
+<table border="0" cellpadding="5" cellspacing="0" width="100%">
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="Exceptions">Exceptions</a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        
+'no outfile defined; no walkers saved'<br>
+
+</td></tr>
+</table>
+
+        <tr>
+            <th bgcolor="#99ccff"
+                rowspan="2"
+                valign="top"
+                align="left"
+                width="20%"
+                >
+                <font color="#000000">
+                  <a name="uni_dist"></a>&nbsp;
+                </font>
+            </th>
+            <th bgcolor="#99ccff"
+                valign="top"
+                align="left"
+                width="80%"
+                >
+                <font color="#000000">uni_dist&nbsp;</font>
+            </th>
+        </tr>
+        <tr>
+        <td>
+        <font color="#000088"><pre>
+uni_dist ( self,  reset=False )
+
+</pre></font>
+
+<p>Function distributing walkers uniformly
+        (or loading checkpointed walkers)</p>
+</td></tr>
+</td></tr>
+</table>
+
+        </td>
+        </tr>
+        </table>
+
+        <hr>
+
+        <p><i><a href="../../../../../../index.html">Table of Contents</a></i></p>
+
+        <font size="-2"><i>This document was automatically generated
+        on Thu Sep 14 23:23:13 2006 by
+        <a href="http://happydoc.sourceforge.net">HappyDoc</a> version
+        2.1</i></font>
+        
+        </body>
+        </html>
+        

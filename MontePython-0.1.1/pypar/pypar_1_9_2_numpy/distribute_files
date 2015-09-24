@@ -1,0 +1,77 @@
+#!/usr/bin/env python
+#
+# Copy all files in this dir to other hosts in hosts (should be ~/.lamhosts)
+
+import sys, os, os.path
+
+#
+#
+def create_remote_dir(user, host, dir):
+  """Verify existence of remote directory. Create if necessary.
+  """
+  import os, sys, string
+  
+  print 'Verify existence of directory %s' %dir  
+  exitcode = os.system('ssh %s@%s "cd %s 2>/dev/null"' %(user, host, dir))
+  if exitcode != 0:
+    pdir = dir.split(os.sep)[:-1]    #Strip last sub directory off
+    pdir = string.join(pdir, os.sep)
+    create_remote_dir(user, host, pdir) #Try again
+
+    
+  
+    #Try to create directory 
+    #print 'Attempt to create remote directory %s' %dir  
+    exitcode = os.system('ssh %s@%s "mkdir %s"' %(user, host, dir))
+    if exitcode != 0:  
+      print 'Could not create remote directory %s on %s' %(dir, host)    
+    else:
+      print 'Remote directory %s succesfully created on %s' %(dir, host)      
+
+  
+  
+  
+
+hostfile = '~/.lamhosts'
+hostfile = os.path.expanduser(hostfile)
+fid = open(hostfile, 'r')
+hosts = map(lambda s: s.strip(), fid.readlines())
+
+try:
+  hostname = os.environ['HOST']
+except:
+  try:  
+    hostname = os.environ['HOSTNAME']  
+  except:
+    raise 'Hostname unknown, please set environment variable HOSTNAME'
+    hostname = 'Unknown'  
+
+
+try:    
+  hosts.remove(hostname)    
+except:
+  pass  
+
+print "Distributing from %s to hosts %s:" %(hostname, hosts)      
+print "Do you wish to continue ? (Y/N)[Y]",
+a = raw_input()
+if a.upper() == 'N':
+  sys.exit()
+print
+
+dir = os.getcwd()
+user = os.environ['USERNAME']
+
+for host in hosts:
+  if not host == '':
+    print 'Copying to host %s' %host 
+    create_remote_dir(user, host, dir)
+
+    s = 'scp * %s@%s:%s' %(user,host,dir)
+    print s
+    os.system(s)
+
+
+
+
+
