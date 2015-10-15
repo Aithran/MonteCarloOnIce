@@ -14,7 +14,7 @@ Random::Random(){
 }
 
 Random::Random(long idum_){
-  idum=-(long)(abs(idum_));
+  idum=(long)(std::abs(idum_));
   unsigned long seed[6];
   for(int i=0; i!=6; i++)
     seed[i]=idum;

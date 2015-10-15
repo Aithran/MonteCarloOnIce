@@ -1,7 +1,8 @@
 #!/usr/bin/env python
 
 import pypar
-import sys, math, numpy, MLab, os, pickle
+import sys, math, numpy, os, pickle
+from mlab.releases import latest_release as MLab
 from MontePython import MontePython
 
 try:
@@ -15,7 +16,7 @@ d = MontePython(pypar,ifile)
 # energy == 3/2:
 d.params[0] = 0.5 
 d.reset_params()
-#d.silent = True # to avoid too much noise
+d.silent = True # to avoid too much noise
 if not os.access('checkpoint.dat',os.F_OK):
     d.blocks = 5
     d.tau_list = [[0.001,100,d.blocks],]
@@ -83,7 +84,7 @@ def timestep(i_step):
 
     d.monte_carlo_steps()
     
-    d.update = False
+    d.update = True
 
     #bring out your dead
     for i in xrange(len(d.w_block)-1,-1,-1):
@@ -103,6 +104,8 @@ def timestep(i_step):
     d.time_step_counter += 1
 
     loc_nrg     = d.w_block.warray.getLocalEnergies(*d.num_args)
+    
+    
     loc_pot_nrg = d.w_block.warray.getOtherEnergies(d.pot_e)
     if hasattr(d,'vort_e'):
         loc_vort_nrg = d.w_block.warray.getOtherEnergies(d.vort_e)
@@ -222,6 +225,8 @@ while d.tau_list: #loop over taus
                                     math.sqrt(MLab.std(observables[0])/\
                                               float(len(observables[0]))))
         print "sigma = %g"%MLab.std(observables[0])
+	print d.num_args
+	print observables
         os.remove('observables_tau%g.dat'%d.tau)
         f = open('results_'+d.outfile,'a')
         f.write('tau %d no. of walkers %d'%(d.tau,d.no_of_walkers))

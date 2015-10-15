@@ -43,9 +43,9 @@ mpi_lib   = '/opt/scali/lib64'
 import pypar
 pypar_lib = pypar.__repr__().split()[-1].split('__init__')[0][1:]
 # openmpi:
-mpi_libraries = ['mpi','mpi_cxx','pthread','orte','opal','util','nsl','dl',]
+#mpi_libraries = ['mpi','mpi_cxx','pthread','orte','opal','util','nsl','dl',]
 # mpich2:
-#mpi_libraries = ['mpich','mpichcxx','rt','pthread',]
+mpi_libraries = ['mpich','mpichcxx','rt','pthread',]
 
 use_sprng = False
 
