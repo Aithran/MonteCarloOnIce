@@ -894,9 +894,9 @@ double DuBoisWave:: valuePt(QickArray &pos){
   // g(alpha,lambda,r_ij)
   for(int j=0; j!=rows; j++)
     if(j==2)
-      g+=lambda*(pos(moved_particle,j));
+      g+=lambda*sqr(pos(moved_particle,j));
     else
-      g+=(pos(moved_particle,j));
+      g+=sqr(pos(moved_particle,j));
   
     
   //g = exp(-alpha*g);
@@ -919,9 +919,9 @@ double DuBoisGauss:: valuePt(QickArray &pos){
   // g(alpha,lambda,r_ij)
   for(int j=0; j!=rows; j++)
     if(j==2)
-      g+=lambda*(pos(moved_particle,j));
+      g+=lambda*sqr(pos(moved_particle,j));
     else
-      g+=(pos(moved_particle,j));
+      g+=sqr(pos(moved_particle,j));
   
     
   g = (-alpha*g);
@@ -1010,9 +1010,9 @@ double DuBoisWaveAll:: valuePt(QickArray &pos){
   for(int moved_particle=0; moved_particle!=cols; moved_particle++)
   for(int j=0; j!=rows; j++)
     if(j==2)
-      g+=lambda*(pos(moved_particle,j));
+      g+=lambda*sqr(pos(moved_particle,j));
     else
-      g+=(pos(moved_particle,j));
+      g+=sqr(pos(moved_particle,j));
 
   g = -alpha*g;
 
@@ -1101,11 +1101,11 @@ double DuBoisLocalEnergy:: valuePt(QickArray &pos){
     for(int x=0; x!=rows; x++)
       if(x==2){
 	pos_i(x) = lambda*pos(i,x);
-	e_lg2   += (pos_i(x));
+	e_lg2   += sqr(pos_i(x));
       }
       else{
 	pos_i(x) = pos(i,x);
-	e_lg2   += (pos_i(x));
+	e_lg2   += sqr(pos_i(x));
       }
 
     if(a!=0) for(int j=0; j!=cols; j++) if(j!=i){
@@ -1151,18 +1151,18 @@ double DuBoisLocalEnergy:: valuePt(QickArray &pos){
   }
   
   kinetic_e += -sqr(2*alpha)*e_lg2 - e_lf1 - e_lf2 + 4*alpha*e_lfg;
-  
+  //this is the potential energy function that is currently being used in diffusion.py
   double potential_e = 0;
   
   for(int i=0; i!=cols; i++)
     for(int j=0; j!=rows; j++){
       if(j==2)
-	potential_e += sin((lambda*pos(i,j)));
+	potential_e += ((lambda*sqr(pos(i,j))));
       else
-	potential_e += -sin((pos(i,j)));
+	potential_e += (sqr(pos(i,j)));
     }
   
-  return (kinetic_e+potential_e);
+  return (kinetic_e+potential_e);//potential_e);
   
 
 }
