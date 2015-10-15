@@ -1157,9 +1157,9 @@ double DuBoisLocalEnergy:: valuePt(QickArray &pos){
   for(int i=0; i!=cols; i++)
     for(int j=0; j!=rows; j++){
       if(j==2)
-	potential_e += (lambda*pos(i,j));
+	potential_e += sin((lambda*pos(i,j)));
       else
-	potential_e += (pos(i,j));
+	potential_e += -sin((pos(i,j)));
     }
   
   return (kinetic_e+potential_e);
@@ -1200,13 +1200,13 @@ double DuBoisLocalEnergy:: valuePt(QickArray &pos, int dummy){
   for(int i=0; i!=cols; i++)
     for(int j=0; j!=rows; j++){
       if(j==2)
-	potential_e += (lambda*pos(i,j));
+	potential_e += sqr(lambda*pos(i,j));
       else
-	potential_e += (pos(i,j));
+	potential_e += sqr(pos(i,j));
     }
 
-  //return kinetic_e+potential_e;
-  return 0.4;
+  return kinetic_e+potential_e;
+  
 
 }
 
@@ -1220,13 +1220,13 @@ double DuBoisPotentialEnergy:: valuePt(QickArray &pos){
   for(int i=0; i!=cols; i++)
     for(int j=0; j!=rows; j++){
       if(j==2)
-	potential_e += (lambda*pos(i,j));
+	potential_e += sqr(lambda*pos(i,j));
       else
-	potential_e += (pos(i,j));
+	potential_e += sqr(pos(i,j));
     }
 
-  //return potential_e;
-  return 1;
+  return potential_e;
+  
 
 }
 
@@ -1284,9 +1284,9 @@ double DuBoisVortexWave:: valuePt(QickArray &pos){
   // g(alpha,lambda,r_ij)
   for(int j=0; j!=rows; j++)
     if(j==2)
-      g+=lambda*(pos(moved_particle,j));
+      g+=lambda*sqr(pos(moved_particle,j));
     else{
-      rho_i+=(pos(moved_particle,j));
+      rho_i+=sqr(pos(moved_particle,j));
     }
 
   g += rho_i;
@@ -1337,9 +1337,9 @@ double DuBoisVortexWaveAll:: valuePt(QickArray &pos){
     g = rho_i = 0;
     for(int j=0; j!=rows; j++)
       if(j==2)
-	g+=lambda*(pos(moved_particle,j));
+	g+=lambda*sqr(pos(moved_particle,j));
       else{
-	rho_i+=(pos(moved_particle,j));
+	rho_i+=sqr(pos(moved_particle,j));
 	
       }	
     g += rho_i;
@@ -1466,10 +1466,10 @@ double DuBoisVortexLocalEnergy:: valuePt(QickArray &pos, int dummy){
     for(int j=0; j!=rows; j++){
       tmp = pos(i,j);
       if(j==2){
-	potential_e += (lambda*tmp);
+	potential_e += sqr(lambda*tmp);
       }
       else{
-	rho_i += (tmp);
+	rho_i += sqr(tmp);
       }
     }
     potential_e += rho_i + sqr(kappa)/rho_i;
@@ -1562,10 +1562,10 @@ double DuBoisVortexLocalEnergy:: valuePt(QickArray &pos){
     for(int j=0; j!=rows; j++){
       tmp = pos(i,j);
       if(j==2){
-	potential_e += (lambda*tmp);
+	potential_e += sqr(lambda*tmp);
       }
       else{
-	rho_i += (tmp);
+	rho_i += sqr(tmp);
       }
     }
     potential_e += rho_i + sqr(kappa)/rho_i;
@@ -1587,10 +1587,10 @@ double DuBoisVortexPotentialEnergy:: valuePt(QickArray &pos){
     for(int j=0; j!=rows; j++){
       tmp = pos(i,j);
       if(j!=2){
-	rho_i += (tmp);
+	rho_i += sqr(tmp);
       }
     }
-    potential_e += (kappa)/rho_i;
+    potential_e += sqr(kappa)/rho_i;
   }
 
   return potential_e;
@@ -1610,7 +1610,7 @@ double DuBoisVortexExcitationEnergy:: valuePt(QickArray &pos){
     rho_i=0;
     for(int x=0; x!=rows; x++)
       if(x!=2)
-	rho_i   += (pos(i,x));
+	rho_i   += sqr(pos(i,x));
     
     excitation_e += 1/rho_i;
   }  

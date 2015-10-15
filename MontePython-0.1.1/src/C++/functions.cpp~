@@ -1157,13 +1157,13 @@ double DuBoisLocalEnergy:: valuePt(QickArray &pos){
   for(int i=0; i!=cols; i++)
     for(int j=0; j!=rows; j++){
       if(j==2)
-	potential_e += (lambda*pos(i,j));
+	potential_e += sin((lambda*pos(i,j)));
       else
-	potential_e += (pos(i,j));
+	potential_e += -sin((pos(i,j)));
     }
   
-  //return (kinetic_e+potential_e);
-  return 0.4;
+  return (kinetic_e+potential_e);
+  
 
 }
 
