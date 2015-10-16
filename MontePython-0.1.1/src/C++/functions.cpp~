@@ -1153,16 +1153,15 @@ double DuBoisLocalEnergy:: valuePt(QickArray &pos){
   kinetic_e += -sqr(2*alpha)*e_lg2 - e_lf1 - e_lf2 + 4*alpha*e_lfg;
   //this is the potential energy function that is currently being used in diffusion.py
   double potential_e = 0;
-  
-  for(int i=0; i!=cols; i++)
-    for(int j=0; j!=rows; j++){
-      if(j==2)
-	potential_e += ((lambda*sqr(pos(i,j))));
-      else
-	potential_e += (sqr(pos(i,j)));
+  for(int i=0; i!=cols; i++){
+	double distFromOrigin = 0.0;
+    for(int j=0; j!=rows; j++){      
+	distFromOrigin+ = sqr(pos(i,j));
     }
+        potential_e+=pow(distFromOrigin,2);
+  }
   
-  return (kinetic_e+0);//potential_e);
+  return (kinetic_e+potential_e);//potential_e);
   
 
 }

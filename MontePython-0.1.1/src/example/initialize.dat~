@@ -4,12 +4,12 @@ set metropolis      = 1       #metropolis=1,linear=0,quadric=2
 set save pos        = 1       #save_pos=1
 set no. of walkers  = 400     #number of walkers
 set desired walkers = 400     #desired number of walkers
-set particles       = 1      #particles
+set particles       = 3      #particles
 set dimensions      = 3       #dimensions
 set steps           = 1000     #time steps
 set termalization   = 50      #thermalization
 set metropolis termalization = 150     #metropolis_termalization
-set step length     = 1    #step length
+set step length     = 1.5    #step length
 set idum            = 68758   #idum
 set tau             = 5e-07   #tau
 set D               = 1       #D
